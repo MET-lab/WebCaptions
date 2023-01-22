@@ -1,5 +1,7 @@
 # WebCaptions
-A basic Node + Socket.io web app to display and control captions for live events. This is a primitive implementation, originally developed to enable titles and translations for opera performances. The system was used successfully for audiences as part of the O17 Opera Festival.
+A basic Node + Socket.io web app to display and control captions for live events. This is a primitive implementation, originally developed to enable titles and translations for opera performances. The system was used successfully for audiences as part of Opera Philadelphia's O17 Festival.
+
+The system was initially developed by the Music & Entertainment Technology Lab of the [Drexel University ExCITe Center](https://drexel.edu/excite).
 
 Files:
 * captions.js: Node and Socket.io code for a webserver
