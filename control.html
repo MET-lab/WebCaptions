@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<!-- meta name="viewport" content="width=640" -->
+<title>Opera Title Control</title>
+<style media="screen" type="text/css">
+html, body {
+    background-color: #222;
+    color: #888;
+    width:100%;
+    height:100%;
+    min-height:100%;
+    margin-left: 40px;
+    padding: 0px;
+    font-family: sans-serif;
+    font-size: 23px; 
+  	transition:background-color 0.3s ease;    
+}
+th, td {
+   border: 1px solid gray;
+   font-size: 12pt;
+}
+table.tableSection { display: table; width: 100%; }
+table.tableSection thead, table.tableSection tbody { float: left; width: 100%; }
+table.tableSection tbody { overflow: auto; height: 250px; }
+table.tableSection tr { width: 100%; display: table; text-align: left; }
+button { width: 150px; font-size: 14px; background: #555; border: 1px; padding: 10px; }
+.selected { background-color: #AAA; color: #000; }
+</style>
+</head>
+
+<body>
+
+<!-- meta name="viewport" content="width=640" /-->
+
+<div id="mainWrapper" style="width: 100%;">
+	<p>LIVE</p>
+	<div id="mainPreview" style="float:left; margin-left: 0px; width: 640px; height: 240px; background-color: #000;">
+	
+		<div style="height:30px"></div>
+		<h2 id="title" style="margin-left:20px; color: #777;">Captions Demonstration</h2>
+	</div>
+	<div id="selectWork" style="margin-left: 680px; margin-top:50px; width:150px">
+		<table class="tableSection">
+			<tbody id="workList" style="height:100px;">
+				<tr>
+				  <td>Monteverdi</td>
+				</tr>
+				<tr>
+				  <td>Beecher</td>
+				</tr>
+				<tr>
+				  <td>Test</td>
+				</tr>
+			</tbody>
+		</table>
+		<button type="button" onclick="switchWork()" style="float:right;">Switch</button>
+	</div>
+</div>
+
+<div id="wrapper" style="width: 100%; margin-top: 0px; overflow: hidden;">
+	<div id="left" style="width: 385px; float: left;">
+	<p>Preview</p>
+		<div id="smallPreview" style="width: 385px; height: 150px; background-color: #000; float: left; font-size
+:14px;">
+			<div style="height:15px"></div>
+			<h2 id="next" style="margin-left:12px; color:#777">Next title preview</h2>
+		</div>
+		<div id="controlPanel" style="margin-top:200px;">
+			<button type="button" onclick="nextTitle()">Go</button>
+			<button type="button" onclick="goBlack()" style="float:right;background:#111;color:#888;">Black</
+button>
+		</div>
+	</div>
+
+    <div style="margin-left:440px; width:400px">
+    <p>Cue list</p>
+		<table class="tableSection">
+			<thead>
+				<tr>
+				  <td style="width: 10%"><b>No.<b></td>
+				  <td style="width: 90%"><b>Title</b></td>
+				</tr>
+			</thead>
+			<tbody id="titleList">
+				<tr>
+				  <td>1</td>
+				  <td>Title placeholder</td>
+				</tr>
+			</tbody>
+	  </table>
+	</div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script type="text/javascript">
+	
+// Globals (there's probably a better way to deal with these than globals)
+
+	var titles = '';	// List of all titles
+	var title = '';		// Current title
+	var nxTitle = '';	// Next title
+	var masterIdx = 0;
+	var socket = io();	
+	var control = io('/control');
+	var highlightColor = '#AAA';
+	var backgroundColor = '#222';
+	var textColor = '#888';
+	var selectedWork = '';
+		
+    init();
+
+ // Function declarations...
+  
+    function init() {
+ 
+		document.getElementById('title').style.transition = 'opacity 0.5s';
+//		document.getElementById('titleList').click( function() {
+//			console.log(this);
+//		});
+		window.addEventListener("keypress", keyPressed, false);
+
+		for (var i=0; i<3; i++) {
+			document.getElementById("workList").rows[i].onclick = function() {
+
+				var workTable = document.getElementById("workList");
+				var workRows = workTable.getElementsByTagName("tr");
+				workRows[0].style.background = backgroundColor;
+				workRows[0].style.color = textColor;
+				workRows[1].style.background = backgroundColor;
+				workRows[1].style.color = textColor;
+				workRows[2].style.background = backgroundColor;
+				workRows[2].style.color = textColor;
+
+				this.style.backgroundColor = highlightColor;
+				this.style.color = '#000';
+				selectedWork = this.cells.item(0).textContent;
+				return;
+			}
+		}
+
+		socket.on('new title', function(msg){updateTitle(msg);} );
+		socket.on('current title', function(msg){updateTitle(msg);} );
+//		socket.on('black', function(){ updateTitle(''); } );
+		control.on('all titles', function(msg){ updateTitleTable(msg); } );
+		control.on('next title', function(msg){ updateNextTitle(msg);} );
+		control.on('title number', function(num){ updateTitleNumber(num); } );
+		
+		// Request complete list of titles for table
+		control.emit('all');
+		
+		// Request a refresh to get the current title
+		socket.emit('refresh');
+		control.emit('control refresh');		
+		return;
+	}
+
+	function keyPressed(event) {
+		switch(event.keyCode) {
+			case 32:	// spacebar
+				nextTitle();
+				break;
+				
+			case 66:	// B
+			case 98: 	// b
+				goBlack();
+				break
+		}
+		return;
+	}
+
+	function switchWork() {
+		console.log('switch work: '+selectedWork);
+		control.emit('switch work',selectedWork);
+		return;		
+	}
+
+	function nextTitle() {
+		control.emit('next');
+		return;
+	}
+
+	function goBlack() {
+		control.emit('black');
+		return;
+	}
+
+	function updateTitleNumber(num) {
+		var table = document.getElementById("titleList");
+		var rows = table.getElementsByTagName("tr");
+		rows[masterIdx].style.background = backgroundColor;
+		rows[masterIdx].style.color = textColor;
+
+		masterIdx=num;
+		rows[masterIdx].style.background = highlightColor;
+		rows[masterIdx].style.color = '#000';
+		
+		if (num>1) {
+			var scrollTo =	rows[masterIdx-2].offsetTop;
+			table.scrollTop = rows[masterIdx-2].offsetTop;
+		}
+				
+		return;
+	}
+	
+	function updateTitle(newTitle) {
+//		console.log('updateTitle');
+		document.getElementById("title").style.opacity = 0;
+		title = newTitle;
+		setTimeout( fadeInNewTitle, 500 );
+		return;		
+	}
+
+	function fadeInNewTitle() {
+//		console.log('fadeInNewTitle');
+		document.getElementById("title").innerHTML = title;
+		document.getElementById("title").style.opacity = 1;
+		return;	
+	}
+
+	function updateNextTitle(next) {
+		console.log('updateNextTitle: ' + next);
+		document.getElementById("next").style.opacity = 0;
+		nxTitle = next;
+		setTimeout( fadeInNextTitle, 500 );
+		return;		
+	}
+
+	function fadeInNextTitle() {
+//		console.log('fadeInNewTitle');
+		document.getElementById("next").innerHTML = nxTitle;
+		document.getElementById("next").style.opacity = 1;
+		return;	
+	}
+
+
+	function updateTitleTable(titleData) {
+		console.log('updateTitleTable');
+//		document.getElementById("titleList").innerHTML = titleData;
+
+		var table = document.getElementById("titleList");
+		table.innerHTML = titleData;
+//		console.log(titleData);
+
+//		masterIdx = 1;
+		for (var i=0;i < table.rows.length;i++){
+			table.rows[i].onclick = function () {
+				unhighlight();
+				this.style.backgroundColor = highlightColor;
+				this.style.color = '#000';
+				console.log('row index: ' + this.rowIndex);
+				masterIdx = this.rowIndex - 1;
+				control.emit('cue next',masterIdx-1);
+			}
+		}
+
+		table.scrollTop = 0;				
+		return;		
+	}
+
+	function unhighlight() {
+		var table = document.getElementById("titleList");
+		var rows = table.getElementsByTagName("tr");
+		rows[masterIdx].style.background = backgroundColor;
+		rows[masterIdx].style.color = textColor;
+	}
+
+
+	function fadeInTitle() {
+	
+		thisTitle = titles[idx];
+		document.getElementById("title").innerHTML = thisTitle;
+		idx++;
+
+		document.getElementById("title").style.opacity = 1;	
+	}
+
+
+	// Helper function to return background to default (called by timer)
+	function resetBackground() {
+		document.body.style.transition = "background-color 0.3s ease";    
+
+		document.body.style.backgroundColor = "#000";
+		return;
+	}
+
+</script>
+
+</body>
+</html>
